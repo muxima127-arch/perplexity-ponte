@@ -1,0 +1,9 @@
+#!/bin/zsh
+# Ponte Claude Code -> Perplexity (API Sonar, paga). Uso: perplexity-ponte [-m sonar|sonar-pro] "pedido"
+model="sonar"; [[ "$1" == "-m" ]] && { model="$2"; shift 2; }
+[[ -z "$1" ]] && { echo "uso: perplexity-ponte [-m sonar|sonar-pro] \"pedido\"" >&2; exit 2; }
+key=$(grep -E '^PERPLEXITY_API_KEY=' ~/.claude/.env 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"'"'")
+[[ -z "$key" ]] && { echo "perplexity-ponte: falta PERPLEXITY_API_KEY em ~/.claude/.env" >&2; exit 3; }
+body=$(jq -n --arg m "$model" --arg q "$*" '{model:$m,messages:[{role:"user",content:$q}]}')
+res=$(curl -sS https://api.perplexity.ai/chat/completions -H "Authorization: Bearer $key" -H "Content-Type: application/json" -d "$body") || exit 1
+print -r -- "$res" | jq -r 'if .error then "erro: \(.error.message // .error)" else (.choices[0].message.content, "", "Fontes:", (.citations // [])[]) end'
